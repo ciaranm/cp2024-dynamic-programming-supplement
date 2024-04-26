@@ -1,0 +1,13 @@
+intermediate
+perf.data
+perf.data.old
+html
+build
+Doxyfile
+*.a
+*.log
+*.opb
+*.veripb
+*.pbp
+XCSP3-CPP-Parser
+.idea

@@ -2,27 +2,48 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <random>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::find_if;
+using std::max;
+using std::random_device;
 using std::map;
+using std::mt19937;
 using std::ofstream;
 using std::pair;
 using std::set;
+using std::stoi;
 using std::string;
 using std::to_string;
+using std::uniform_int_distribution;
 using std::vector;
 
-auto main(int, char *[]) -> int
+auto main(int argc, char * argv[]) -> int
 {
-    vector<int> weights = {2, 5, 2, 3, 2, 3};
-    vector<int> profits = {2, 4, 2, 5, 4, 3};
-    int max_weight = 7;
+    if (argc != 4) {
+        cerr << "Usage: " << argv[0] << " n-items max-item-weight max-weight\n";
+        return EXIT_FAILURE;
+    }
+
+    vector<int> weights;
+    vector<int> profits;
+    int max_weight = stoi(argv[3]);
+
+    random_device rd;
+    mt19937 rand; // (rd());
+    uniform_int_distribution dist{1, stoi(argv[2])};
+
+    for (int i = 0, i_end = stoi(argv[1]) ; i < i_end ; ++i) {
+        weights.push_back(dist(rand));
+        profits.push_back(dist(rand));
+    }
 
     {
         ofstream opb{"knapsack.opb"};
@@ -53,6 +74,7 @@ auto main(int, char *[]) -> int
     states_by_layer.at(0).emplace(pair<int, int>{0, 0}, vector<int>{});
 
     vector<unsigned> layer_start_nrs;
+    unsigned total_states = 0, widest_layer = 0, total_transitions = 0;
     for (unsigned layer = 0 ; layer < weights.size() ; ++layer) {
         layer_start_nrs.push_back(constraint_n + 1);
         if (layer >= 2) {
@@ -65,6 +87,7 @@ auto main(int, char *[]) -> int
             auto notake = how, take = how;
             notake.push_back(0);
             take.push_back(1);
+            total_transitions += 2;
 
             states_by_layer.at(layer + 1).emplace(pair<int, int>{state.first, state.second}, notake);
 
@@ -256,10 +279,8 @@ auto main(int, char *[]) -> int
                 ++state;
         }
 
-        cout << "states at layer " << layer + 1 << ":";
-        for (auto & [state, how] : states_by_layer.at(layer + 1))
-            cout << " (" << state.first << ", " << state.second << ")";
-        cout << "\n";
+        total_states += states_by_layer.at(layer + 1).size();
+        widest_layer = max<unsigned>(widest_layer, states_by_layer.at(layer + 1).size());
     }
 
     if (states_by_layer.at(weights.size()).empty()) {
@@ -299,10 +320,19 @@ auto main(int, char *[]) -> int
             }
         }
 
+        // need to explicitly derive the lower bound
+        proof << "rup";
+        for (unsigned p = 0 ; p < profits.size() ; ++p)
+            proof << " -" << profits[p] << " x" << p;
+        proof << " >= " << -*final_profits.rbegin() << " ;\n";
+        ++constraint_n;
+
         proof << "output NONE\n";
         proof << "conclusion BOUNDS " << -*final_profits.rbegin() << " " << -*final_profits.rbegin() << "\n";
         proof << "end pseudo-Boolean proof\n";
     }
+
+    cout << widest_layer << " " << total_states << " " << total_transitions << "\n";
 
     return EXIT_SUCCESS;
 }
